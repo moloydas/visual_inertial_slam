@@ -29,14 +29,14 @@ if __name__ == '__main__':
     w_T_mloc /= w_T_mloc[3,:]
     w_T_mloc = w_T_mloc[:3,:]
 
+    init_list_idx = np.arange(n_landmarks)[sub_features[0, :, 0] > 0]
     sigma = np.zeros((3*n_landmarks, 3*n_landmarks))
-    m_state, sigma = init_landmarks(m_state, sigma, w_T_mloc, sub_features[:,:,0])
+    m_state, sigma = kf.init_landmarks(m_state, sigma, w_T_mloc, sub_features[:,:,0], init_list_idx)
+    visited_landmarks = set(np.arange(n_landmarks)[sub_features[0, :, 0] > 0])
 
     # (a) IMU Localization using dead reckoning
     landmarks = None
-    new_update_idx = None
-    old_update_idx = sub_features[0,:,0] > 0
-    for i in tqdm(range(10)):#dt.shape[0])):
+    for i in tqdm(range(dt.shape[0])):
         wTi[:,:,i+1] = my_robot.predict_pose(dt[i], wTi[:,:,i], linear_velocity[:,i], 
                                              angular_velocity[:,i])
 
@@ -45,18 +45,26 @@ if __name__ == '__main__':
         w_T_mloc = (wTi[:,:,i+1] @ imu_mloc)
         w_T_mloc /= w_T_mloc[3,:]
 
-        new_update_idx = sub_features[0,:,i+1] > 0
-        if not np.array_equal(new_update_idx, old_update_idx):
-            print(np.arange(new_update_idx.shape[0])[new_update_idx])
-            print(np.arange(old_update_idx.shape[0])[old_update_idx])
-            print("detected new landmarks")
-            init_landmarks(m_state, sigma, w_T_mloc[:3,:], sub_features[:,:, i+1])
+        # print(sub_features[:, sub_features[0, :, i+1] > 0, i+1])
+        obs_landmarks = set(np.arange(n_landmarks)[sub_features[0, :, i+1] > 0])
+        update_idx_set = visited_landmarks & obs_landmarks
+        init_list_idx = list(obs_landmarks - update_idx_set)
+        update_list_idx = list(update_idx_set)
 
-        old_update_idx = np.copy(new_update_idx)
-        measurements = sub_features[:, new_update_idx, i+1]
+        # print(obs_landmarks)
+        # print(update_list_idx)
+        # print(init_list_idx)
+
+        measurements = sub_features[:, update_list_idx, i+1]
 
         m_state, sigma = kf.update(my_robot, sigma, imu_T_cam, wTi[:,:, i+1], 
-                            m_state, measurements, n_landmarks, new_update_idx)
+                            m_state, measurements, n_landmarks, update_list_idx)
+
+        if len(init_list_idx) > 0:
+            print("detected new landmarks")
+            kf.init_landmarks(m_state, sigma, w_T_mloc[:3,:], sub_features[:,:, i+1], init_list_idx)
+
+            visited_landmarks = visited_landmarks.union(set(init_list_idx))
 
         # if landmarks is None:
         #     landmarks = w_T_mloc[:3,:]
@@ -64,8 +72,9 @@ if __name__ == '__main__':
         #     landmarks = np.hstack((landmarks,w_T_mloc[:3,:]))
 
     # landmarks = np.array(landmarks)
-    m = m_state.T.reshape(3,-1).T
-    visualize_trajectory_landmark_2d(wTi, m, path_name="dead_reckoning",show_ori=True)
+    m = m_state.T.reshape(-1,3).T
+
+    visualize_trajectory_landmark_2d(wTi, m, path_name="dead_reckoning",show_ori=False)
 
     # (b) Landmark Mapping via EKF Update
 
