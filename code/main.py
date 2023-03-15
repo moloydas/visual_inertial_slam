@@ -5,48 +5,9 @@ from tqdm import tqdm
 from transforms3d.euler import euler2mat
 import sys
 from filter_measurements import *
-
-def visualize_trajectory_landmark_2d(pose, landmark, path_name="Unknown",show_ori=False):
-    '''
-    function to visualize the trajectory in 2D
-    Input:
-        pose:   4*4*N matrix representing the camera pose, 
-                where N is the number of poses, and each
-                4*4 matrix is in SE(3)
-		landmark: 3*N matrix
-    '''
-    fig,ax = plt.subplots(figsize=(5,5))
-    n_pose = pose.shape[2]
-    ax.plot(pose[0,3,:],pose[1,3,:],'r-',label=path_name)
-    ax.scatter(pose[0,3,0],pose[1,3,0],marker='s',label="start")
-    ax.scatter(pose[0,3,-1],pose[1,3,-1],marker='o',label="end")
-    ax.scatter(landmark[0,:],landmark[1,:],s=1, label="landmarks")
-  
-    if show_ori:
-        select_ori_index = list(range(0,n_pose,max(int(n_pose/50), 1)))
-        yaw_list = []
-        
-        for i in select_ori_index:
-            _,_,yaw = mat2euler(pose[:3,:3,i])
-            yaw_list.append(yaw)
-    
-        dx = np.cos(yaw_list)
-        dy = np.sin(yaw_list)
-        dx,dy = [dx,dy]/np.sqrt(dx**2+dy**2)
-        ax.quiver(pose[0,3,select_ori_index],pose[1,3,select_ori_index],dx,dy,\
-            color="b",units="xy",width=1)
-    
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
-    ax.axis('equal')
-    ax.grid(False)
-    ax.legend()
-    plt.show(block=True)
-
-    return fig, ax
+from kalman_filter import *
 
 if __name__ == '__main__':
-
     # Load the measurements
     filename = "../data/10.npz"
     t,features,linear_velocity,angular_velocity,K,b,imu_T_cam = load_data(filename)
@@ -58,34 +19,54 @@ if __name__ == '__main__':
     wTi = np.zeros((4,4,dt.shape[0]+1))
     wTi[:,:,0] = np.eye(4)
 
-    n_landmarks = 1000
-    sub_features = disparity_filter_measurements(features, n=5000)
+    sub_features = disparity_filter_measurements(features, n=1000)
+    n_landmarks = sub_features.shape[1]
+    kf = kalman_filter()
 
-    # sub_features = random_subsample_measurements(features, n=5000)
+    m_state = np.ones((3*n_landmarks,1)) * -5000
+    new_idx = sub_features[0,:,0] > 0
+    w_T_mloc = wTi[:, :, 0] @ my_robot.get_pos_from_stereo(sub_features[:,:,0])
+    w_T_mloc /= w_T_mloc[3,:]
+    w_T_mloc = w_T_mloc[:3,:]
+
+    sigma = np.zeros((3*n_landmarks, 3*n_landmarks))
+    m_state, sigma = init_landmarks(m_state, sigma, w_T_mloc, sub_features[:,:,0])
+
+    # (a) IMU Localization using dead reckoning
     landmarks = None
-
-    # (a) IMU Localization via EKF Prediction
-    for i in tqdm(range(dt.shape[0])):
-        wTi[:,:,i+1] = my_robot.predict_pose(dt[i], wTi[:,:,i], linear_velocity[:,i], angular_velocity[:,i])
+    new_update_idx = None
+    old_update_idx = sub_features[0,:,0] > 0
+    for i in tqdm(range(10)):#dt.shape[0])):
+        wTi[:,:,i+1] = my_robot.predict_pose(dt[i], wTi[:,:,i], linear_velocity[:,i], 
+                                             angular_velocity[:,i])
 
         # (b) predict feature location using dead reckoning
         imu_mloc = my_robot.get_pos_from_stereo(sub_features[:,:,i+1])
-
         w_T_mloc = (wTi[:,:,i+1] @ imu_mloc)
-        w_T_mloc /= w_T_mloc[3,:]        
+        w_T_mloc /= w_T_mloc[3,:]
 
-        if landmarks is None:
-            landmarks = w_T_mloc[:3,:]
-        else:
-            landmarks = np.hstack((landmarks,w_T_mloc[:3,:]))
+        new_update_idx = sub_features[0,:,i+1] > 0
+        if not np.array_equal(new_update_idx, old_update_idx):
+            print(np.arange(new_update_idx.shape[0])[new_update_idx])
+            print(np.arange(old_update_idx.shape[0])[old_update_idx])
+            print("detected new landmarks")
+            init_landmarks(m_state, sigma, w_T_mloc[:3,:], sub_features[:,:, i+1])
 
-    landmarks = np.array(landmarks)
-    # print(landmarks.shape)
+        old_update_idx = np.copy(new_update_idx)
+        measurements = sub_features[:, new_update_idx, i+1]
+
+        m_state, sigma = kf.update(my_robot, sigma, imu_T_cam, wTi[:,:, i+1], 
+                            m_state, measurements, n_landmarks, new_update_idx)
+
+        # if landmarks is None:
+        #     landmarks = w_T_mloc[:3,:]
+        # else:
+        #     landmarks = np.hstack((landmarks,w_T_mloc[:3,:]))
+
+    # landmarks = np.array(landmarks)
+    m = m_state.T.reshape(3,-1).T
+    visualize_trajectory_landmark_2d(wTi, m, path_name="dead_reckoning",show_ori=True)
 
     # (b) Landmark Mapping via EKF Update
 
     # (c) Visual-Inertial SLAM
-
-    # You can use the function below to visualize the robot pose over time
-    # visualize_trajectory_2d(wTi, show_ori = True)
-    visualize_trajectory_landmark_2d(wTi, landmarks, path_name="dead_reckoning",show_ori=True)

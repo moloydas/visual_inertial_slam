@@ -9,6 +9,12 @@ class robot:
         self.iTc = iTc
         self.K = K
         self.baseline = b
+        self.Ks = np.zeros((4,4))
+        self.Ks[:3,:3] = K
+        self.Ks[3,3] = -K[0,0]*b
+        self.Ks[2,0] = K[0,0]
+        self.Ks[2,2] = K[0,2]
+        self.Ks[3,:3] = self.Ks[1,:3]
 
     def predict_pose(self, dt, T, velocity, angular_vel):
         twist = np.hstack((velocity,angular_vel))
@@ -28,7 +34,6 @@ class robot:
         stereo_meas = stereo_meas[:, stereo_meas[0,:] > 0]
 
         d = stereo_meas[0, :] - stereo_meas[2, :]
-        # idx = d > 1
         idx = np.arange(stereo_meas.shape[1])
         z = self.K[0,0] * self.baseline/d[idx]
         x = z * (stereo_meas[0, idx]-self.K[0,2])/self.K[0,0]
@@ -37,3 +42,4 @@ class robot:
         imuPOS = self.iTc @ camPOS
 
         return imuPOS
+    

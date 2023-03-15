@@ -24,10 +24,15 @@ if __name__ == '__main__':
     t,features,linear_velocity,angular_velocity,K,b,imu_T_cam = load_data(filename)
     # sub_features = random_subsample_measurements(features, 5000)
 
-    print(features.shape)
-    sub_measurements = disparity_filter_measurements(features)
-    print(sub_measurements.shape)
+    # print(features.shape)
+    # sub_measurements = disparity_filter_measurements(features)
+    # print(sub_measurements.shape)
 
-
-
-
+    d = features[0,:,:]- features[2, :, :]
+    d = d[:3,:]
+    print(d[:,0])
+    print(d.shape)
+    d = d.flatten(order='F')
+    print(d[:3])
+    d = d.T.reshape(-1,3).T
+    print(d[:,0])
