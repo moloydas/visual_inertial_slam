@@ -11,10 +11,10 @@ class robot:
         self.baseline = b
         self.Ks = np.zeros((4,4))
         self.Ks[:3,:3] = K
-        self.Ks[3,3] = -K[0,0]*b
         self.Ks[2,0] = K[0,0]
         self.Ks[2,2] = K[0,2]
         self.Ks[3,:3] = self.Ks[1,:3]
+        self.Ks[2,3] = -K[0,0]*b
 
     def predict_pose(self, dt, T, velocity, angular_vel):
         twist = np.hstack((velocity,angular_vel))
