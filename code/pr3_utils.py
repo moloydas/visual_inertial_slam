@@ -36,7 +36,7 @@ def load_data(file_name):
     return t,features,linear_velocity,angular_velocity,K,b,imu_T_cam
 
 
-def visualize_trajectory_2d(pose,path_name="Unknown",show_ori=False):
+def visualize_trajectory_2d(pose,path_name="Unknown",show_ori=False, save_path=None):
     '''
     function to visualize the trajectory in 2D
     Input:
@@ -69,6 +69,8 @@ def visualize_trajectory_2d(pose,path_name="Unknown",show_ori=False):
     ax.axis('equal')
     ax.grid(False)
     ax.legend()
+    if save_path is not None:
+        plt.savefig(save_path)
     plt.show(block=True)
 
     return fig, ax
@@ -220,7 +222,7 @@ def pose2adpose(T):
 	return calT
 
 
-def visualize_trajectory_landmark_2d(pose, landmark, path_name="Unknown",show_ori=False):
+def visualize_trajectory_landmark_2d(pose, landmark, path_name="Unknown",show_ori=False, save_path=None, show=True, max_num=None):
     '''
     function to visualize the trajectory in 2D
     Input:
@@ -231,7 +233,11 @@ def visualize_trajectory_landmark_2d(pose, landmark, path_name="Unknown",show_or
     '''
     fig,ax = plt.subplots(figsize=(5,5))
     n_pose = pose.shape[2]
-    ax.plot(pose[0,3,:],pose[1,3,:],'r-',label=path_name)
+
+    if max_num is not None:
+         ax.plot(pose[0,3,:max_num],pose[1,3,:max_num],'r-',label=path_name)
+    else:
+        ax.plot(pose[0,3,:],pose[1,3,:],'r-',label=path_name)
     ax.scatter(pose[0,3,0],pose[1,3,0],marker='s',label="start")
     ax.scatter(pose[0,3,-1],pose[1,3,-1],marker='o',label="end")
     ax.scatter(landmark[0,:],landmark[1,:],s=10, label="landmarks")
@@ -255,6 +261,53 @@ def visualize_trajectory_landmark_2d(pose, landmark, path_name="Unknown",show_or
     ax.axis('equal')
     ax.grid(False)
     ax.legend()
+    if save_path is not None:
+        fig.savefig(save_path, bbox_inches='tight')
+    if show:
+        plt.show(block=True)
+    else:
+        plt.close(fig)
+    return fig, ax
+
+def compare_landmark_2d(pose, landmark_1, landmark_2, path_name="Unknown",show_ori=False, save_path=None):
+    '''
+    function to compare the landmarks in 2D
+    Input:
+        pose:   4*4*N matrix representing the camera pose, 
+                where N is the number of poses, and each
+                4*4 matrix is in SE(3)
+		landmark: 3*N matrix
+    '''
+    fig,ax = plt.subplots(figsize=(5,5))
+    n_pose = pose.shape[2]
+    ax.plot(pose[0,3,:],pose[1,3,:],'r-',label=path_name)
+    ax.scatter(pose[0,3,0],pose[1,3,0],marker='s',label="start")
+    ax.scatter(pose[0,3,-1],pose[1,3,-1],marker='o',label="end")
+    ax.scatter(landmark_1[0,:],landmark_1[1,:],s=10, label="landmarks_1")
+    ax.scatter(landmark_2[0,:],landmark_2[1,:],s=10, label="landmarks_2")
+  
+    if show_ori:
+        select_ori_index = list(range(0,n_pose,max(int(n_pose/50), 1)))
+        yaw_list = []
+        
+        for i in select_ori_index:
+            _,_,yaw = mat2euler(pose[:3,:3,i])
+            yaw_list.append(yaw)
+    
+        dx = np.cos(yaw_list)
+        dy = np.sin(yaw_list)
+        dx,dy = [dx,dy]/np.sqrt(dx**2+dy**2)
+        ax.quiver(pose[0,3,select_ori_index],pose[1,3,select_ori_index],dx,dy,\
+            color="b",units="xy",width=1)
+    
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.axis('equal')
+    ax.grid(False)
+    ax.legend()
+    if save_path is not None:
+        plt.savefig(save_path)
+
     plt.show(block=True)
 
     return fig, ax
