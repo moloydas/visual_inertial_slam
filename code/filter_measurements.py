@@ -18,21 +18,26 @@ def random_subsample_measurements(all_measurements, n=5000):
     samples = np.random.choice(n_landmark, size=n, replace=False)
     return all_measurements[:, samples, :]
 
+def downSample(all_features):
+    # choose 1000 feature with equal interval
+    interval = 10#3
+    featureN = int(all_features.shape[1] / interval)
+    n_t = all_features.shape[2]
+    print("choose features with interval: " + str(interval))
+    feature = np.zeros((4, featureN, n_t))
+    for idx in range(featureN):
+        feature[:,idx,:] = all_features[:, interval*idx, :]
+    return feature
+
 if __name__ == '__main__':
     # Load the measurements
     filename = "../data/10.npz"
     t,features,linear_velocity,angular_velocity,K,b,imu_T_cam = load_data(filename)
-    # sub_features = random_subsample_measurements(features, 5000)
+    sub_features = random_subsample_measurements(features, 5000)
 
-    # print(features.shape)
-    # sub_measurements = disparity_filter_measurements(features)
-    # print(sub_measurements.shape)
+    print(features.shape)
+    sub_measurements = disparity_filter_measurements(features)
+    print(sub_measurements.shape)
 
-    d = features[0,:,:]- features[2, :, :]
-    d = d[:3,:]
-    print(d[:,0])
-    print(d.shape)
-    d = d.flatten(order='F')
-    print(d[:3])
-    d = d.T.reshape(-1,3).T
-    print(d[:,0])
+    sub_features = downSample(features)
+    print(sub_features.shape)
