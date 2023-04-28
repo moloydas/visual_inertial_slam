@@ -58,7 +58,6 @@ if __name__ == '__main__':
         update_list_idx = list(update_idx_set)
 
         measurements = sub_features[:, update_list_idx, i+1]
-        # measurements = sub_features[:, :, i+1]
 
         if len(init_list_idx) > 0:
             kf.init_landmarks(m_state, sigma, w_T_mloc[:3,:], sub_features[:,:, i+1], init_list_idx)

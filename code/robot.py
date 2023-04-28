@@ -33,8 +33,7 @@ class robot:
 
         # filt detected measurements
         d = np.ones_like(stereo_meas[0,:])        
-        # stereo_meas = stereo_meas[:, stereo_meas[0,:] > 0]
-        
+
         valid_idx = stereo_meas[0,:] > 0
         d[valid_idx] = stereo_meas[0, valid_idx] - stereo_meas[2, valid_idx]
 
@@ -43,13 +42,6 @@ class robot:
         y = z * (stereo_meas[1,:]-self.K[1,2])/self.K[1,1]
         camPOS = np.vstack((x,y,z,np.ones_like(z)))
         imuPOS = self.iTc @ camPOS
-
-        # idx = np.arange(stereo_meas.shape[1])
-        # z = self.K[0,0] * self.baseline/d[idx]
-        # x = z * (stereo_meas[0, idx]-self.K[0,2])/self.K[0,0]
-        # y = z * (stereo_meas[1, idx]-self.K[1,2])/self.K[1,1]
-        # camPOS = np.vstack((x,y,z,np.ones_like(z)))
-        # imuPOS = self.iTc @ camPOS
 
         return imuPOS
     
