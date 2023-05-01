@@ -17,13 +17,13 @@ In this work, EKF-based Visual Inertial Simultaneous Localization And Mapping (S
 
 # Demo
 
-##10 sequence
+## 10 sequence
 
 https://user-images.githubusercontent.com/20353960/235547234-31699c92-c3ef-49c6-8ad9-df5028ea4235.mp4
 
 ------
 
-##03 sequence
+## 03 sequence
 
 
 https://user-images.githubusercontent.com/20353960/235547305-e9a99c28-2272-4d79-a80b-6af542087867.mp4
