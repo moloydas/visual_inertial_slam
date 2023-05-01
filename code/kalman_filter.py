@@ -55,7 +55,7 @@ class kalman_filter:
         sigma[6:,6:] = (np.eye(3*n_landmarks) - KG @ H) @ sigma[6:,6:]
         return mu_t1, sigma
 
-    def update_state(self, my_robot, pose, sigma, map_pts, measurements, n_landmarks, update_idx):
+    def update_full_state(self, my_robot, pose, sigma, map_pts, measurements, n_landmarks, update_idx):
         nt = measurements.shape[1]
         HR = np.zeros((4*nt, 6))
         HM = np.zeros((4*nt, 3*n_landmarks))
